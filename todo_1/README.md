@@ -46,3 +46,9 @@ clang++ -target x86_64-pc-windows-msvc -m64 -std=c++17 -O2 main.cpp -o main.exe 
 ```
 
 ***
+### blog
+
+https://zenn.dev/knaka0209/scraps/4600def9c311d0
+
+
+***
