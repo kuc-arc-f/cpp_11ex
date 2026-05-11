@@ -21,7 +21,9 @@
 #include <string>
 #include <stdexcept>
 #include <shlwapi.h>
+
 #include "nlohmann/json.hpp"
+#include "include/my_todo.hpp"
 
 // JSON用エイリアス
 using json = nlohmann::json;
@@ -51,96 +53,8 @@ static std::wstring GetHtmlPath()
 }
 const std::string FILE_PATH = "todos.json";
 
-struct Todo {
-    int id;
-    std::string title;
-};
-
-struct TodoData {
-    int max_id;
-    std::vector<Todo> items;
-};
 //NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TodoData, max_id, items)
 
-// JSONファイルからデータ読み込み
-TodoData load_data() {
-    TodoData data{0, {}};
-    std::ifstream file(FILE_PATH);
-    if (file.is_open()) {
-        try {
-            json j = json::parse(file);
-            if (j.contains("max_id") && j["max_id"].is_number()) {
-                data.max_id = j["max_id"].get<int>();
-            }
-            if (j.contains("items") && j["items"].is_array()) {
-                for (const auto& item : j["items"]) {
-                    if (item.contains("id") && item.contains("title")) {
-                        data.items.push_back({item["id"].get<int>(), item["title"].get<std::string>()});
-                    }
-                }
-            }
-        } catch (const json::parse_error& e) {
-            std::cerr << "JSON解析エラー: " << e.what() << "\n";
-        }
-    }
-    return data;
-}
-
-// データをJSONファイルに保存
-void save_data(const TodoData& data) {
-    json j;
-    j["max_id"] = data.max_id;
-    j["items"] = json::array();
-    for (const auto& item : data.items) {
-        j["items"].push_back({{"id", item.id}, {"title", item.title}});
-    }
-    std::ofstream file(FILE_PATH);
-    if (file.is_open()) {
-        file << j.dump(2); // インデント2で整形出力
-        file.close();
-    } else {
-        std::cerr << "エラー: ファイルに書き込めません。\n";
-    }
-}
-// TODO一覧表示
-std::vector<Todo> list_todos(const TodoData& data) {
-    std::vector<Todo> todos;
-    if (data.items.empty()) {
-//        std::cout << "TODOはありません。\n";
-        std::cout << "TODO none\n";
-        return todos;
-    }
-    for (const auto& item : data.items) {
-        Todo t;
-        t.id = item.id;
-        t.title = item.title;
-        todos.push_back(t);
-        //std::cout << "[" << item.id << "] " << item.title << "\n";
-    }
-    return todos;
-}
-// TODO追加
-void add_todo(TodoData& data, const std::string& title) {
-    data.max_id++;
-    data.items.push_back({data.max_id, title});
-    save_data(data);
-    //std::cout << "追加完了: #" << data.max_id << " " << title << "\n";
-    std::cout << "add: #" << data.max_id << " " << title << "\n";
-}
-// TODO削除
-void delete_todo(TodoData& data, int id) {
-    auto it = std::remove_if(data.items.begin(), data.items.end(),
-                             [id](const Todo& t) { return t.id == id; });
-    if (it == data.items.end()) {
-        //std::cout << "ID #" << id << " は存在しません。\n";
-        std::cout << "ID #" << id << " none \n";
-    } else {
-        data.items.erase(it, data.items.end());
-        save_data(data);
-        //std::cout << "削除完了: #" << id << "\n";
-        std::cout << "delete: #" << id << "\n";
-    }
-}
 std::wstring StringToWString(const std::string& str)
 {
     if (str.empty()) return L"";
@@ -169,7 +83,6 @@ std::string to_utf8(const std::wstring& wstr) {
     return strTo;
 }
 
-
 struct ActionRequest {
     std::string action;
     std::string data;
@@ -179,27 +92,6 @@ struct ActionResponse {
     std::string data;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ActionResponse, ret, data)
-
-std::string todo_to_json(const Todo& t) {
-    std::ostringstream oss;
-    oss << "{"
-        << "\"id\":"    << t.id           << ","
-        << "\"title\":\"" << t.title      << "\""
-        //<< "\"done\":"  << (t.done ? "true" : "false")
-        << "}";
-    return oss.str();
-}
-
-std::string todos_to_json(const std::vector<Todo>& todos) {
-    std::ostringstream oss;
-    oss << "[";
-    for (size_t i = 0; i < todos.size(); ++i) {
-        if (i > 0) oss << ",";
-        oss << todo_to_json(todos[i]);
-    }
-    oss << "]";
-    return oss.str();
-}
 
 std::wstring action_handler(const std::wstring& data) {
     std::lock_guard<std::mutex> lk(g_mutex);
@@ -213,9 +105,9 @@ std::wstring action_handler(const std::wstring& data) {
             std::string data_str = j1.at("data").get<std::string>();
             json j3 = json::parse(data_str);
             std::string title = j3.at("title").get<std::string>();
-
-            TodoData data = load_data();
-            add_todo(data, title);
+            MyTodo todo_helper(FILE_PATH);
+            TodoData data = todo_helper.load_data();
+            todo_helper.add_todo(data, title);
             std::string body = title;
             resp.data = body;
             resp.ret = 200;
@@ -225,9 +117,10 @@ std::wstring action_handler(const std::wstring& data) {
             return resp_wstr;
         }
         if (action == "todo_list") {
-            TodoData data = load_data();
+            MyTodo todo_helper(FILE_PATH);
+            TodoData data = todo_helper.load_data();
             std::vector<Todo> items = data.items;
-            auto json_u8 = todos_to_json(items);
+            auto json_u8 = todo_helper.todos_to_json(items);
 
             resp.data = json_u8;
             resp.ret = 200;
@@ -237,12 +130,13 @@ std::wstring action_handler(const std::wstring& data) {
             return resp_wstr;
         }
         if (action == "todo_delete") {
+            MyTodo todo_helper(FILE_PATH);
             std::string data_str = j1.at("data").get<std::string>();
             json j3 = json::parse(data_str);
             std::string id_str = j3.at("id").get<std::string>();            
-            TodoData data = load_data();
+            TodoData data = todo_helper.load_data();
             int id = std::stoi(id_str);
-            delete_todo(data , id);
+            todo_helper.delete_todo(data, id);
             resp.data = id_str;
             resp.ret = 200;
             json j2 = resp;
