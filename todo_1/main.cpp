@@ -1,0 +1,505 @@
+// ============================================================
+//  MyWebViewApp - C++ / LLVM Clang / WebView2 Desktop App
+//  ローカルHTMLファイルを表示するデスクトップアプリ
+// ============================================================
+
+#ifndef UNICODE
+#define UNICODE
+#endif
+
+#include <windows.h>
+#include <wrl.h>
+#include <wil/com.h>
+#include <WebView2.h>
+
+#include <iostream>
+#include <fstream>
+#include <filesystem>
+#include <mutex>
+#include <vector>
+#include <sstream>
+#include <string>
+#include <stdexcept>
+#include <shlwapi.h>
+#include "nlohmann/json.hpp"
+
+// JSON用エイリアス
+using json = nlohmann::json;
+#pragma comment(lib, "shlwapi.lib")
+using namespace Microsoft::WRL;
+
+// ── グローバル変数 ─────────────────────────────────────────
+static std::mutex        g_mutex;
+static HWND                                    g_hWnd       = nullptr;
+static wil::com_ptr<ICoreWebView2Controller>   g_controller;
+static wil::com_ptr<ICoreWebView2>             g_webview;
+
+// ── ウィンドウタイトル / クラス名 ─────────────────────────
+static constexpr wchar_t APP_TITLE[]     = L"MyWebViewApp";
+static constexpr wchar_t WND_CLASS[]     = L"MyWebViewAppClass";
+
+// ── HTMLファイルのパスを取得 ──────────────────────────────
+static std::wstring GetHtmlPath()
+{
+    wchar_t exePath[MAX_PATH] = {};
+    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    PathRemoveFileSpecW(exePath);               // 実行ファイルのディレクトリ
+
+    std::wstring path = exePath;
+    path += L"\\html\\index.html";
+    return path;
+}
+const std::string FILE_PATH = "todos.json";
+
+struct Todo {
+    int id;
+    std::string title;
+};
+
+struct TodoData {
+    int max_id;
+    std::vector<Todo> items;
+};
+//NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TodoData, max_id, items)
+
+// JSONファイルからデータ読み込み
+TodoData load_data() {
+    TodoData data{0, {}};
+    std::ifstream file(FILE_PATH);
+    if (file.is_open()) {
+        try {
+            json j = json::parse(file);
+            if (j.contains("max_id") && j["max_id"].is_number()) {
+                data.max_id = j["max_id"].get<int>();
+            }
+            if (j.contains("items") && j["items"].is_array()) {
+                for (const auto& item : j["items"]) {
+                    if (item.contains("id") && item.contains("title")) {
+                        data.items.push_back({item["id"].get<int>(), item["title"].get<std::string>()});
+                    }
+                }
+            }
+        } catch (const json::parse_error& e) {
+            std::cerr << "JSON解析エラー: " << e.what() << "\n";
+        }
+    }
+    return data;
+}
+
+// データをJSONファイルに保存
+void save_data(const TodoData& data) {
+    json j;
+    j["max_id"] = data.max_id;
+    j["items"] = json::array();
+    for (const auto& item : data.items) {
+        j["items"].push_back({{"id", item.id}, {"title", item.title}});
+    }
+    std::ofstream file(FILE_PATH);
+    if (file.is_open()) {
+        file << j.dump(2); // インデント2で整形出力
+        file.close();
+    } else {
+        std::cerr << "エラー: ファイルに書き込めません。\n";
+    }
+}
+// TODO一覧表示
+std::vector<Todo> list_todos(const TodoData& data) {
+    std::vector<Todo> todos;
+    if (data.items.empty()) {
+//        std::cout << "TODOはありません。\n";
+        std::cout << "TODO none\n";
+        return todos;
+    }
+    for (const auto& item : data.items) {
+        Todo t;
+        t.id = item.id;
+        t.title = item.title;
+        todos.push_back(t);
+        //std::cout << "[" << item.id << "] " << item.title << "\n";
+    }
+    return todos;
+}
+// TODO追加
+void add_todo(TodoData& data, const std::string& title) {
+    data.max_id++;
+    data.items.push_back({data.max_id, title});
+    save_data(data);
+    //std::cout << "追加完了: #" << data.max_id << " " << title << "\n";
+    std::cout << "add: #" << data.max_id << " " << title << "\n";
+}
+// TODO削除
+void delete_todo(TodoData& data, int id) {
+    auto it = std::remove_if(data.items.begin(), data.items.end(),
+                             [id](const Todo& t) { return t.id == id; });
+    if (it == data.items.end()) {
+        //std::cout << "ID #" << id << " は存在しません。\n";
+        std::cout << "ID #" << id << " none \n";
+    } else {
+        data.items.erase(it, data.items.end());
+        save_data(data);
+        //std::cout << "削除完了: #" << id << "\n";
+        std::cout << "delete: #" << id << "\n";
+    }
+}
+std::wstring StringToWString(const std::string& str)
+{
+    if (str.empty()) return L"";
+
+    int size_needed = MultiByteToWideChar(
+        CP_UTF8, 0,
+        str.c_str(), (int)str.size(),
+        NULL, 0
+    );
+
+    std::wstring wstr(size_needed, 0);
+
+    MultiByteToWideChar(
+        CP_UTF8, 0,
+        str.c_str(), (int)str.size(),
+        &wstr[0], size_needed
+    );
+
+    return wstr;
+}
+std::string to_utf8(const std::wstring& wstr) {
+    if (wstr.empty()) return std::string();
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+    std::string strTo(size_needed, 0);
+    WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+    return strTo;
+}
+
+
+struct ActionRequest {
+    std::string action;
+    std::string data;
+};
+struct ActionResponse {
+    int ret;
+    std::string data;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ActionResponse, ret, data)
+
+std::string todo_to_json(const Todo& t) {
+    std::ostringstream oss;
+    oss << "{"
+        << "\"id\":"    << t.id           << ","
+        << "\"title\":\"" << t.title      << "\""
+        //<< "\"done\":"  << (t.done ? "true" : "false")
+        << "}";
+    return oss.str();
+}
+
+std::string todos_to_json(const std::vector<Todo>& todos) {
+    std::ostringstream oss;
+    oss << "[";
+    for (size_t i = 0; i < todos.size(); ++i) {
+        if (i > 0) oss << ",";
+        oss << todo_to_json(todos[i]);
+    }
+    oss << "]";
+    return oss.str();
+}
+
+std::wstring action_handler(const std::wstring& data) {
+    std::lock_guard<std::mutex> lk(g_mutex);
+    ActionResponse resp;
+    try {    
+        resp.ret = 500;
+        std::string data_u8 = to_utf8(data);
+        json j1 = json::parse(data_u8);
+        std::string action = j1.at("action").get<std::string>();
+        if (action == "todo_add") {
+            std::string data_str = j1.at("data").get<std::string>();
+            json j3 = json::parse(data_str);
+            std::string title = j3.at("title").get<std::string>();
+
+            TodoData data = load_data();
+            add_todo(data, title);
+            std::string body = title;
+            resp.data = body;
+            resp.ret = 200;
+            json j2 = resp;
+            std::string json_str = j2.dump();
+            std::wstring resp_wstr = StringToWString(json_str);
+            return resp_wstr;
+        }
+        if (action == "todo_list") {
+            TodoData data = load_data();
+            std::vector<Todo> items = data.items;
+            auto json_u8 = todos_to_json(items);
+
+            resp.data = json_u8;
+            resp.ret = 200;
+            json j3 = resp;
+            std::string json_str = j3.dump();
+            std::wstring resp_wstr = StringToWString(json_str);
+            return resp_wstr;
+        }
+        if (action == "todo_delete") {
+            std::string data_str = j1.at("data").get<std::string>();
+            json j3 = json::parse(data_str);
+            std::string id_str = j3.at("id").get<std::string>();            
+            TodoData data = load_data();
+            int id = std::stoi(id_str);
+            delete_todo(data , id);
+            resp.data = id_str;
+            resp.ret = 200;
+            json j2 = resp;
+            std::string json_str = j2.dump();
+            std::wstring resp_wstr = StringToWString(json_str);
+            return resp_wstr;
+        }
+        return L"";
+    } catch (const std::exception& ex) {
+        //std::wcerr << ex.what() << std::endl;
+        return L"";
+    }
+}
+
+// ── WebView2 の初期化 ─────────────────────────────────────
+static void InitWebView2(HWND hWnd)
+{
+    // ユーザーデータフォルダ（実行ファイルと同じ場所に作成）
+    wchar_t exePath[MAX_PATH] = {};
+    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    PathRemoveFileSpecW(exePath);
+    std::wstring userDataFolder = std::wstring(exePath) + L"\\WebView2Data";
+
+    HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(
+        nullptr,                    // ブラウザ実行可能フォルダ (nullptr = 自動検索)
+        userDataFolder.c_str(),     // ユーザーデータフォルダ
+        nullptr,                    // 追加オプション
+        Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
+            [hWnd](HRESULT result, ICoreWebView2Environment* env) -> HRESULT
+            {
+                if (FAILED(result) || !env)
+                {
+                    MessageBoxW(hWnd,
+                        L"WebView2 ランタイムが見つかりません。\n"
+                        L"Microsoft Edge WebView2 Runtime をインストールしてください。\n"
+                        L"https://developer.microsoft.com/microsoft-edge/webview2/",
+                        L"エラー", MB_ICONERROR | MB_OK);
+                    PostQuitMessage(1);
+                    return result;
+                }
+
+                env->CreateCoreWebView2Controller(
+                    hWnd,
+                    Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+                        [hWnd](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT
+                        {
+                            if (FAILED(result) || !controller)
+                            {
+                                MessageBoxW(hWnd, L"WebView2 コントローラの作成に失敗しました。",
+                                    L"エラー", MB_ICONERROR | MB_OK);
+                                PostQuitMessage(1);
+                                return result;
+                            }
+
+                            g_controller = controller;
+                            g_controller->get_CoreWebView2(&g_webview);
+
+                            // ── WebView2 設定 ──────────────────────
+                            wil::com_ptr<ICoreWebView2Settings> settings;
+                            g_webview->get_Settings(&settings);
+                            if (settings)
+                            {
+                                settings->put_IsScriptEnabled(TRUE);
+                                settings->put_AreDefaultContextMenusEnabled(TRUE);
+                                settings->put_IsZoomControlEnabled(TRUE);
+                                settings->put_AreDevToolsEnabled(TRUE);   // 開発中はTRUE
+                            }
+
+                            // ── ウィンドウサイズに合わせてリサイズ ──
+                            RECT bounds;
+                            GetClientRect(hWnd, &bounds);
+                            g_controller->put_Bounds(bounds);
+                            g_controller->put_IsVisible(TRUE);
+
+                            // ── ローカルHTMLファイルをロード ────────
+                            std::wstring htmlPath = GetHtmlPath();
+                            // file:/// URI に変換
+                            std::wstring uri = L"file:///" + htmlPath;
+                            // バックスラッシュをスラッシュに変換
+                            for (auto& c : uri) if (c == L'\\') c = L'/';
+
+                            g_webview->Navigate(uri.c_str());
+
+                            // ── JS からメッセージを受信した時の処理 ───────
+                            g_webview->add_WebMessageReceived(
+                                Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+                                    [](ICoreWebView2* sender,
+                                       ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT
+                                    {
+                                        wil::unique_cotaskmem_string message;
+                                        args->TryGetWebMessageAsString(&message);
+
+                                        if (message)
+                                        {
+                                            std::wstring msgStr = message.get();
+                                            
+                                            // 受信した文字を確認（デバッグ用）
+                                            std::string data_u8 = to_utf8(msgStr);
+                                            json j1 = json::parse(data_u8);
+                                            std::string data_str = j1.at("data").get<std::string>();
+                                            std::wstring data_str_w = StringToWString(data_str);
+                                            //MessageBoxW(g_hWnd, data_str_w.c_str(), L"C++ 受信", MB_OK);
+                                            auto resp = action_handler(msgStr);
+
+                                            // 返信メッセージを作成
+                                            std::wstring response = resp;
+                                            
+                                            // JS にメッセージを送信
+                                            sender->PostWebMessageAsString(response.c_str());
+                                        }
+                                        return S_OK;
+                                    }
+                                ).Get(),
+                                nullptr
+                            );
+
+                            // ── ナビゲーション完了イベント ──────────
+                            g_webview->add_NavigationCompleted(
+                                Callback<ICoreWebView2NavigationCompletedEventHandler>(
+                                    [](ICoreWebView2* sender,
+                                       ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT
+                                    {
+                                        BOOL success = FALSE;
+                                        args->get_IsSuccess(&success);
+                                        if (!success)
+                                        {
+                                            COREWEBVIEW2_WEB_ERROR_STATUS status;
+                                            args->get_WebErrorStatus(&status);
+                                            // ファイルが見つからない場合はフォールバックHTML
+                                            if (status == COREWEBVIEW2_WEB_ERROR_STATUS_CANNOT_CONNECT ||
+                                                status == COREWEBVIEW2_WEB_ERROR_STATUS_UNKNOWN)
+                                            {
+                                                sender->NavigateToString(
+                                                    L"<html><body style='font-family:sans-serif;"
+                                                    L"display:flex;align-items:center;justify-content:center;"
+                                                    L"height:100vh;margin:0;background:#1a1a2e;color:#eee'>"
+                                                    L"<div><h2>&#x26A0; HTMLファイルが見つかりません</h2>"
+                                                    L"<p>html/index.html を配置してください。</p></div></body></html>"
+                                                );
+                                            }
+                                        }
+                                        return S_OK;
+                                    }
+                                ).Get(),
+                                nullptr
+                            );
+
+                            return S_OK;
+                        }
+                    ).Get()
+                );
+                return S_OK;
+            }
+        ).Get()
+    );
+
+    if (FAILED(hr))
+    {
+        MessageBoxW(hWnd, L"WebView2 環境の作成に失敗しました。", L"エラー", MB_ICONERROR | MB_OK);
+        PostQuitMessage(1);
+    }
+}
+
+// ── ウィンドウプロシージャ ────────────────────────────────
+static LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    switch (msg)
+    {
+    case WM_SIZE:
+        if (g_controller)
+        {
+            RECT bounds;
+            GetClientRect(hWnd, &bounds);
+            g_controller->put_Bounds(bounds);
+        }
+        return 0;
+
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        return 0;
+
+    // ── キーボードショートカット ──────────────────────────
+    case WM_KEYDOWN:
+        if (wParam == VK_F5 && g_webview)
+        {
+            g_webview->Reload();               // F5: リロード
+        }
+        else if (wParam == VK_F12 && g_webview)
+        {
+            g_webview->OpenDevToolsWindow();   // F12: DevTools
+        }
+        return 0;
+
+    default:
+        return DefWindowProcW(hWnd, msg, wParam, lParam);
+    }
+}
+
+// ── エントリーポイント ────────────────────────────────────
+int WINAPI wWinMain(
+    _In_     HINSTANCE hInstance,
+    _In_opt_ HINSTANCE /*hPrevInstance*/,
+    _In_     LPWSTR    /*lpCmdLine*/,
+    _In_     int       nCmdShow)
+{
+    // DPI 対応
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
+    // ── ウィンドウクラス登録 ──────────────────────────────
+    WNDCLASSEXW wc = {};
+    wc.cbSize        = sizeof(wc);
+    wc.style         = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc   = WndProc;
+    wc.hInstance     = hInstance;
+    wc.hCursor       = LoadCursorW(nullptr, IDC_ARROW);
+    wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+    wc.lpszClassName = WND_CLASS;
+    wc.hIcon         = LoadIconW(nullptr, IDI_APPLICATION);
+
+    if (!RegisterClassExW(&wc))
+    {
+        MessageBoxW(nullptr, L"ウィンドウクラスの登録に失敗しました。", L"エラー", MB_ICONERROR);
+        return 1;
+    }
+
+    // ── ウィンドウ作成 ────────────────────────────────────
+    const int W = 1200, H = 800;
+    int screenW = GetSystemMetrics(SM_CXSCREEN);
+    int screenH = GetSystemMetrics(SM_CYSCREEN);
+
+    g_hWnd = CreateWindowExW(
+        0, WND_CLASS, APP_TITLE,
+        WS_OVERLAPPEDWINDOW,
+        (screenW - W) / 2, (screenH - H) / 2,   // 画面中央
+        W, H,
+        nullptr, nullptr, hInstance, nullptr
+    );
+
+    if (!g_hWnd)
+    {
+        MessageBoxW(nullptr, L"ウィンドウの作成に失敗しました。", L"エラー", MB_ICONERROR);
+        return 1;
+    }
+
+    ShowWindow(g_hWnd, nCmdShow);
+    UpdateWindow(g_hWnd);
+
+    // ── WebView2 初期化（非同期） ─────────────────────────
+    InitWebView2(g_hWnd);
+
+    // ── メッセージループ ──────────────────────────────────
+    MSG msg = {};
+    while (GetMessageW(&msg, nullptr, 0, 0))
+    {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+
+    return static_cast<int>(msg.wParam);
+}
