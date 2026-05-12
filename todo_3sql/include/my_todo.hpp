@@ -11,6 +11,121 @@ struct TodoData {
     std::vector<Todo> items;
 };
 
+// ─────────────────────────────────────────
+//  Database helper
+// ─────────────────────────────────────────
+class DB {
+public:
+    explicit DB(const std::string& path) {
+        if (sqlite3_open(path.c_str(), &db_) != SQLITE_OK)
+            die("open");
+        exec("PRAGMA journal_mode=WAL;");
+        exec(R"(
+            CREATE TABLE IF NOT EXISTS todos (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                title      TEXT    NOT NULL,
+                done       INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT    NOT NULL
+            );
+        )");
+    }
+    ~DB() { sqlite3_close(db_); }
+
+    // ── Write ──────────────────────────────
+    void add(const std::string& title) {
+        //std::string now = timestamp();
+        std::string now = "";
+        sqlite3_stmt* s;
+        prepare("INSERT INTO todos (title, done, created_at) VALUES (?, 0, ?);", &s);
+        sqlite3_bind_text(s, 1, title.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(s, 2, now.c_str(),   -1, SQLITE_TRANSIENT);
+        step_and_finalize(s);
+        std::cout << "✓ 追加しました: [" << sqlite3_last_insert_rowid(db_) << "] " << title << "\n";
+    }
+
+    void done(int id) {
+        sqlite3_stmt* s;
+        prepare("UPDATE todos SET done = 1 WHERE id = ?;", &s);
+        sqlite3_bind_int(s, 1, id);
+        step_and_finalize(s);
+        if (sqlite3_changes(db_) == 0)
+            std::cout << "ID " << id << " が見つかりません。\n";
+        else
+            std::cout << "✓ 完了しました: ID " << id << "\n";
+    }
+
+    void undone(int id) {
+        sqlite3_stmt* s;
+        prepare("UPDATE todos SET done = 0 WHERE id = ?;", &s);
+        sqlite3_bind_int(s, 1, id);
+        step_and_finalize(s);
+        if (sqlite3_changes(db_) == 0)
+            std::cout << "ID " << id << " が見つかりません。\n";
+        else
+            std::cout << "✓ 未完了に戻しました: ID " << id << "\n";
+    }
+
+    void remove(int id) {
+        sqlite3_stmt* s;
+        prepare("DELETE FROM todos WHERE id = ?;", &s);
+        sqlite3_bind_int(s, 1, id);
+        step_and_finalize(s);
+        if (sqlite3_changes(db_) == 0)
+            std::cout << "ID " << id << " が見つかりません。\n";
+        else
+            std::cout << "✓ 削除しました: ID " << id << "\n";
+    }
+
+    void clear_done() {
+        exec("DELETE FROM todos WHERE done = 1;");
+        std::cout << "✓ 完了済みタスクをすべて削除しました。\n";
+    }
+
+    // ── Read ───────────────────────────────
+    std::vector<Todo> list(const std::string& filter = "all") {
+        std::string sql = "SELECT id, title, done, created_at FROM todos";
+        sql += " ORDER BY id DESC;";
+
+        sqlite3_stmt* s;
+        prepare(sql, &s);
+        std::vector<Todo> rows;
+        while (sqlite3_step(s) == SQLITE_ROW) {
+            rows.push_back({
+                sqlite3_column_int (s, 0),
+                reinterpret_cast<const char*>(sqlite3_column_text(s, 1)),
+            });
+        }
+        sqlite3_finalize(s);
+        return rows;
+    }
+
+private:
+    sqlite3* db_ = nullptr;
+
+    void exec(const std::string& sql) {
+        char* err = nullptr;
+        if (sqlite3_exec(db_, sql.c_str(), nullptr, nullptr, &err) != SQLITE_OK) {
+            std::string msg = err ? err : "unknown";
+            sqlite3_free(err);
+            die(msg);
+        }
+    }
+
+    void prepare(const std::string& sql, sqlite3_stmt** s) {
+        if (sqlite3_prepare_v2(db_, sql.c_str(), -1, s, nullptr) != SQLITE_OK)
+            die(sqlite3_errmsg(db_));
+    }
+
+    void step_and_finalize(sqlite3_stmt* s) {
+        sqlite3_step(s);
+        sqlite3_finalize(s);
+    }
+
+    [[noreturn]] static void die(const std::string& msg) {
+        std::cerr << "DB error: " << msg << "\n";
+        std::exit(1);
+    }
+};
 
 // ─────────────────────────────────────────
 //  todo helper
@@ -25,70 +140,6 @@ public:
     }
     ~MyTodo() {
     }
-
-
-    // JSONファイルからデータ読み込み
-    TodoData load_data() {
-        TodoData data{0, {}};
-        std::ifstream file(m_file_path);
-        if (file.is_open()) {
-            try {
-                json j = json::parse(file);
-                if (j.contains("max_id") && j["max_id"].is_number()) {
-                    data.max_id = j["max_id"].get<int>();
-                }
-                if (j.contains("items") && j["items"].is_array()) {
-                    for (const auto& item : j["items"]) {
-                        if (item.contains("id") && item.contains("title")) {
-                            data.items.push_back({item["id"].get<int>(), item["title"].get<std::string>()});
-                        }
-                    }
-                }
-            } catch (const json::parse_error& e) {
-                std::cerr << "JSON解析エラー: " << e.what() << "\n";
-            }
-        }
-        return data;
-    }
-
-    // データをJSONファイルに保存
-    void save_data(const TodoData& data) {
-        json j;
-        j["max_id"] = data.max_id;
-        j["items"] = json::array();
-        for (const auto& item : data.items) {
-            j["items"].push_back({{"id", item.id}, {"title", item.title}});
-        }
-        std::ofstream file(m_file_path);
-        if (file.is_open()) {
-            file << j.dump(2); // インデント2で整形出力
-            file.close();
-        } else {
-            std::cerr << "エラー: ファイルに書き込めません。\n";
-        }
-    }
-    // TODO追加
-    void add_todo(TodoData& data, const std::string& title) {
-        data.max_id++;
-        data.items.push_back({data.max_id, title});
-        save_data(data);
-        //std::cout << "追加完了: #" << data.max_id << " " << title << "\n";
-        std::cout << "add: #" << data.max_id << " " << title << "\n";
-    }
-    // TODO削除
-    void delete_todo(TodoData& data, int id) {
-        auto it = std::remove_if(data.items.begin(), data.items.end(),
-                                [id](const Todo& t) { return t.id == id; });
-        if (it == data.items.end()) {
-            //std::cout << "ID #" << id << " は存在しません。\n";
-            std::cout << "ID #" << id << " none \n";
-        } else {
-            data.items.erase(it, data.items.end());
-            save_data(data);
-            //std::cout << "削除完了: #" << id << "\n";
-            std::cout << "delete: #" << id << "\n";
-        }
-    } 
     
     std::string todo_to_json(const Todo& t) {
         std::ostringstream oss;
