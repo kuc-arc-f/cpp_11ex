@@ -148,23 +148,16 @@ std::wstring action_handler(const std::wstring& data) {
         json j1 = json::parse(data_u8);
         std::string action = j1.at("action").get<std::string>();
         if (action == "book_mark_create") {
+            std::string path_str = j1.at("path").get<std::string>();
             std::string data_str = j1.at("data").get<std::string>();
-            json j3 = json::parse(data_str);
-            std::string path_str = j3.at("path").get<std::string>();
-            std::string target_data = j3.at("bm_data").get<std::string>();
-            json j4 = json::parse(target_data);
-            std::string title_str = j4.at("title").get<std::string>();
-            std::string url_str = j4.at("url").get<std::string>();
-
             HttpClient client(30 /*timeout*/, true /*verify_ssl*/);
 
             std::string api_url = API_URL_BASE + path_str;
-            auto res2 = client.post_json(api_url , target_data);
+            auto res2 = client.post_json(api_url , data_str);
             if (!res2.error.empty()) {
                 std::wstring res3 = action_respose(res2.status_code, res2.body);
                 return res3;
             }
-            //resp.data = title_str + " : " + url_str;
             resp.data = res2.body;
             resp.ret = 200;
             json j2 = resp;
@@ -173,19 +166,16 @@ std::wstring action_handler(const std::wstring& data) {
             return resp_wstr;
         }
         if (action == "book_mark_list") {
+            std::string path_str = j1.at("path").get<std::string>();
             std::string data_str = j1.at("data").get<std::string>();
-            json j3 = json::parse(data_str);
-            std::string path_str = j3.at("path").get<std::string>();
-            std::string target_data = j3.at("bm_data").get<std::string>();
             HttpClient client(30 /*timeout*/, true /*verify_ssl*/);
 
             std::string api_url = API_URL_BASE + path_str;
-            auto res2 = client.post_json(api_url , target_data);
+            auto res2 = client.post_json(api_url , data_str);
             if (!res2.error.empty()) {
                 std::wstring res3 = action_respose(res2.status_code, res2.body);
                 return res3;
             }
-
             resp.data = res2.body;
             resp.ret = 200;
             json j2 = resp;
@@ -195,14 +185,12 @@ std::wstring action_handler(const std::wstring& data) {
         }
         if (action == "book_mark_delete") {
             std::string data_str = j1.at("data").get<std::string>();
-            json j3 = json::parse(data_str);
-            std::string path_str = j3.at("path").get<std::string>();
-            std::string target_data = j3.at("bm_data").get<std::string>();
+            std::string path_str = j1.at("path").get<std::string>();
 
             HttpClient client(30 /*timeout*/, true /*verify_ssl*/);
 
             std::string api_url = API_URL_BASE + path_str;
-            auto res2 = client.post_json(api_url , target_data);
+            auto res2 = client.post_json(api_url , data_str);
             if (!res2.error.empty()) {
                 std::wstring res3 = action_respose(res2.status_code, res2.body);
                 return res3;
@@ -218,18 +206,11 @@ std::wstring action_handler(const std::wstring& data) {
         }
         if (action == "book_mark_update") {
             std::string data_str = j1.at("data").get<std::string>();
-            json j3 = json::parse(data_str);
-            std::string path_str = j3.at("path").get<std::string>();
-            std::string target_data = j3.at("bm_data").get<std::string>();
-            /*
-            json j4 = json::parse(target_data);
-            std::string title_str = j4.at("title").get<std::string>();
-            std::string url_str = j4.at("url").get<std::string>();
-            */
+            std::string path_str = j1.at("path").get<std::string>();
             HttpClient client(30 /*timeout*/, true /*verify_ssl*/);
 
             std::string api_url = API_URL_BASE + path_str;
-            auto res2 = client.post_json(api_url , target_data);
+            auto res2 = client.post_json(api_url , data_str);
             if (!res2.error.empty()) {
                 std::wstring res3 = action_respose(res2.status_code, res2.body);
                 return res3;
@@ -244,14 +225,12 @@ std::wstring action_handler(const std::wstring& data) {
         }
         if (action == "book_mark_seacrh") {
             std::string data_str = j1.at("data").get<std::string>();
-            json j3 = json::parse(data_str);
-            std::string path_str = j3.at("path").get<std::string>();
-            std::string target_data = j3.at("bm_data").get<std::string>();
+            std::string path_str = j1.at("path").get<std::string>();
 
             HttpClient client(30 /*timeout*/, true /*verify_ssl*/);
 
             std::string api_url = API_URL_BASE + path_str;
-            auto res2 = client.post_json(api_url , target_data);
+            auto res2 = client.post_json(api_url , data_str);
             if (!res2.error.empty()) {
                 std::wstring res3 = action_respose(res2.status_code, res2.body);
                 return res3;

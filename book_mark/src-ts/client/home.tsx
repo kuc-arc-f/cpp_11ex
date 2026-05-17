@@ -32,13 +32,10 @@ export default function App() {
   useEffect(() => {
     const fetchTodos = async () => {
       try {
-        const sendData = {
-          path: "/api/book_marks/list",
-          bm_data : JSON.stringify({})          
-        }        
         const target = {
           action: "book_mark_list",
-          data: JSON.stringify(sendData)
+          path: "/api/book_marks/list",
+          data: JSON.stringify({})
         }        
         const sendJson = JSON.stringify(target)        
         console.log(sendJson)
@@ -85,13 +82,10 @@ export default function App() {
 
     setBookmarks([newBookmark, ...bookmarks]);
     try {
-      const sendData = {
-        path: "/api/book_marks/create",
-        bm_data : JSON.stringify(newBookmark)
-      }
       const target = {
         action: "book_mark_create",
-        data: JSON.stringify(sendData)
+        path: "/api/book_marks/create",
+        data: JSON.stringify(newBookmark)
       }        
       const sendJson = JSON.stringify(target)
       console.log(target)
@@ -123,13 +117,10 @@ export default function App() {
       const deleteData = {
         id: id
       }
-      const sendData = {
-        path: "/api/book_marks/delete",
-        bm_data : JSON.stringify(deleteData)
-      }
       const target = {
         action: "book_mark_delete",
-        data: JSON.stringify(sendData)
+        path: "/api/book_marks/delete",
+        data: JSON.stringify(deleteData)
       }
       const sendJson = JSON.stringify(target)
       console.log(target)
@@ -163,13 +154,10 @@ export default function App() {
         title: updatedTitle.trim(),
         url: finalUrl,
       }
-      const sendData = {
-        path: "/api/book_marks/update",
-        bm_data : JSON.stringify(upData)
-      }
       const target = {
         action: "book_mark_update",
-        data: JSON.stringify(sendData)
+        path: "/api/book_marks/update",
+        data: JSON.stringify(upData)
       }    
       const sendJson = JSON.stringify(target)
       console.log(target)
@@ -204,21 +192,17 @@ export default function App() {
         const scData = {
           query: searchQuery.trim(),
         }        
-        const sendData = {
-          path: "/api/book_marks/search",
-          bm_data : JSON.stringify(scData)
-        }
-
         const target = {
           action: "book_mark_seacrh",
-          data: JSON.stringify(sendData)
+          path: "/api/book_marks/search",
+          data: JSON.stringify(scData)
         }        
         const sendJson = JSON.stringify(target)
         console.log(target)
         if (window.chrome && window.chrome.webview) {
           const eventHandler = (event) => {
             const resp = event.data;
-            console.log("resp=" + resp)
+            //console.log("resp=" + resp)
             if(resp){
               const j1 = JSON.parse(resp)
               if(j1.ret === 200){
