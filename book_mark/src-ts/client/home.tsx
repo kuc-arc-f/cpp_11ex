@@ -42,7 +42,6 @@ export default function App() {
         if (window.chrome && window.chrome.webview) {
           const eventHandler = (event) => {
             const resp = event.data;
-            //console.log("resp=" + resp)
             if(resp){
               const j1 = JSON.parse(resp)
               if(j1.ret === 200){
@@ -50,6 +49,8 @@ export default function App() {
                 const j3 = JSON.parse(j2.data)
                 console.log(j3)
                 setBookmarks(j3)
+              }else{
+                console.log("resp=" + resp)
               }
             }
             window.chrome.webview.removeEventListener('message', eventHandler);
