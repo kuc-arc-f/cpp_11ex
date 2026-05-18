@@ -42,6 +42,7 @@ export default function App() {
         if (window.chrome && window.chrome.webview) {
           const eventHandler = (event) => {
             const resp = event.data;
+            //console.log("resp=" + resp)
             if(resp){
               const j1 = JSON.parse(resp)
               if(j1.ret === 200){

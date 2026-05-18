@@ -22,8 +22,9 @@
 #include <shlwapi.h>
 #include <thread>
 
+#include "dotenv.h"
 #include "nlohmann/json.hpp"
-//#include "laserpants/dotenv/dotenv.h"
+
 #include "include/http_client.hpp"
 #include "include/my_bookmark.hpp"
 #include "include/my_todo.hpp"
@@ -37,7 +38,6 @@ using namespace Microsoft::WRL;
 static HWND                                    g_hWnd       = nullptr;
 static wil::com_ptr<ICoreWebView2Controller>   g_controller;
 static wil::com_ptr<ICoreWebView2>             g_webview;
-const std::string API_URL_BASE = "http://localhost:8787";
 
 // ── ウィンドウタイトル / クラス名 ─────────────────────────
 static constexpr wchar_t APP_TITLE[]     = L"MyWebViewApp";
@@ -115,20 +115,18 @@ std::wstring action_respose(int status_code,  std::string body) {
 */
 std::wstring action_handler(const std::wstring& data) {
     ActionResponse resp;
-    //dotenv::init();
+    dotenv env(".env");
 
     try {    
         resp.ret = 500;
-        /*
         char* api_url = std::getenv("API_URL_BASE");
         if (api_url) {
             std::cout << "API URL: " << api_url << std::endl;
-        }        
-        */
+        } 
         std::string data_u8 = to_utf8(data);
         json j1 = json::parse(data_u8);
         std::string action = j1.at("action").get<std::string>();
-        MyBookmark bm_helper(API_URL_BASE);
+        MyBookmark bm_helper(api_url);
         if (action == "book_mark_create") {
             std::wstring resp_wstr = bm_helper.create_handler(data_u8);
             return resp_wstr;

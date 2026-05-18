@@ -28,6 +28,21 @@ https://github.com/kuc-arc-f/workers27ex
 ![img1](/images/book_mark.png)
 
 ***
+### .env
+
+* API-URL
+```
+API_URL_BASE=http://localhost:8787
+```
+
+***
+### related
+
+* dotenv
+
+https://github.com/SermetPekin/dotenv
+
+***
 ### vcpkg install
 ```
 vcpkg install webview2:x64-windows
