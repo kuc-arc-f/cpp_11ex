@@ -8,7 +8,7 @@
 
 ***
 
-C++ Window Webview2 + React CLang , Chat app 
+C++ Window Webview2 + React CLang , Chat UI example 
 
 * LLVM CLang use
 * visual studio 2026 community
@@ -64,3 +64,6 @@ clang++ -target x86_64-pc-windows-msvc -m64 -std=c++17 -O2 main.cpp -o main.exe 
 ```
 
 ***
+### blog
+
+https://zenn.dev/knaka0209/scraps/4e2b4f4d4e9c4a
