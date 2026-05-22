@@ -102,14 +102,15 @@ export default function App() {
         {/* Post List */}
         <div className="space-y-4">
           {chatThreads.map(thread => (
-            <div key={thread.thread_id} className="bg-white p-6 rounded shadow-sm border border-gray-200 flex flex-col gap-3">
-              <div className="font-medium text-gray-900 border-b border-gray-300 pb-2 flex items-center">
-                {thread.user}
+            <div key={thread.thread_id} className="bg-white p-2 rounded shadow-sm border border-gray-200 flex flex-col gap-3">
+              <div className="border-b border-gray-300 pb-2 flex items-center">
+                <span className="text-lg font-medium text-gray-900 mx-2">{thread.user_name}</span>
+                {thread.createdAt} , ID: {thread.thread_id}
               </div>
-              {thread.title && <div className="font-bold text-gray-800 break-words">{thread.title}</div>}
-              <div className="text-sm text-gray-800">
-                {thread.createdAt} , ID: {thread.thread_id} , chatPostId={thread.chatPostId}
-              </div>
+              {thread.title &&(
+              <div className="break-words"
+              dangerouslySetInnerHTML={{ __html: thread.title }}></div>
+              )}
               <div className="flex justify-start pt-1">
                 <button 
                   onClick={() => {
@@ -197,16 +198,23 @@ export default function App() {
 
           </div>
           <hr /> 
-          <div className="p-6 overflow-y-auto text-gray-600 leading-relaxed space-y-4">
+          <div className="p-2 overflow-y-auto text-gray-600 leading-relaxed space-y-2">
             {threads.map(thread => (
               <div key={thread.id} 
-              className="bg-white p-6 rounded  shadow-sm border border-gray-200">
-                <div className="font-medium text-gray-900 border-b border-gray-300 pb-2 flex items-center">
-                  {thread.user}
+              className="bg-white p-2 rounded  shadow-sm border border-gray-200">
+                <div className="border-b border-gray-300 pb-2 flex items-center">
+                  <span className="text-lg font-medium text-gray-900 mx-2">{thread.user_name}
+                  </span>
+                  {thread.createdAt} , ID: {thread.thread_id}
                 </div>
+                {/*
                 {thread.title && <div className="text-gray-800 break-words">{thread.title}</div>}
+                */}
+                {thread.title && (
+                  <div className="mb-2"
+                   dangerouslySetInnerHTML={{ __html: thread.title }}></div>
+                )}                
                 <div className="text-sm text-gray-800">
-                  {thread.createdAt} 
                   <span>
                     <button className="text-blue-400 ms-2"
                     onClick={() => {

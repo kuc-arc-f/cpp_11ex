@@ -1,3 +1,6 @@
+import LibCommon from "../lib/LibCommon";
+import ChatPostHelper from "../chat_post/ChatPostHelper"
+
 const ThreadHelper = {
 
   getChatThread: (chatId , setChatThreads: any) => {
@@ -19,7 +22,8 @@ const ThreadHelper = {
           if(j1.ret === 200){
             const j2 = JSON.parse(j1.data)
             console.log(j2.data)
-            setChatThreads(j2.data)
+            const ar = ChatPostHelper.post_text_conv(j2.data)
+            setChatThreads(ar)
           }else{
             console.log("resp=" + resp)
           }          
@@ -87,7 +91,8 @@ const ThreadHelper = {
           if(j1.ret === 200){
             const j2 = JSON.parse(j1.data)
             console.log(j2.data)
-            setThreads(j2.data)
+            const ar = ChatPostHelper.post_text_conv(j2.data)
+            setThreads(ar)
           }else{
             console.log("resp=" + resp)
           }          
