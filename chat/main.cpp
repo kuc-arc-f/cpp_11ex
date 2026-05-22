@@ -309,6 +309,23 @@ std::wstring action_handler(const std::wstring& data) {
             std::wstring resp_wstr = StringToWString(json_str);
             return resp_wstr;            
         }
+        if (action == "chat_get_one") {
+            std::string path_str = j1.at("path").get<std::string>();
+            std::string data_str = j1.at("data").get<std::string>();
+            std::string api_url_base = api_url + path_str;
+
+            auto res2 = client.post_json(api_url_base , data_str);
+            if (!res2.error.empty()) {
+                std::wstring resp_wstr = action_respose(500, res2.error);
+                return resp_wstr;
+            }
+            resp.data = res2.body;
+            resp.ret = 200;
+            json j2 = resp;
+            std::string json_str = j2.dump();
+            std::wstring resp_wstr = StringToWString(json_str);
+            return resp_wstr; 
+        }
         if (action == "chat_list") {
             std::string path_str = j1.at("path").get<std::string>();
             std::string data_str = j1.at("data").get<std::string>();

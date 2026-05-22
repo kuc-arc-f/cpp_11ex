@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Home, Settings, Search, UserCircle, X } from 'lucide-react';
 import Container from '../components/Container'
 import ChatPostHelper from "./chat_post/ChatPostHelper"
+import LibCommon from "./lib/LibCommon";
 import LibConfig from "./lib/LibConfig"
 
 // Types
@@ -13,8 +14,10 @@ type Post = {
   createdAt: string;
 };
 let itemId: number = 0;
+let userId: number = 0;
 
 export default function App() {
+  const [chat, setChat] = useState({});
   const [posts, setPosts] = useState<Post[]>([]);
   const [threads, setThreads] = useState<[]>([]);
   const [newTitle, setNewTitle] = useState('');
@@ -27,7 +30,19 @@ export default function App() {
       const chat_id = sessionStorage.getItem(LibConfig.STORAGE_KEY_CHAT_ID)
       itemId = Number(chat_id);
       console.log("chatId=" , itemId);
+      const uid = localStorage.getItem(LibConfig.STORAGE_KEY_USER_ID);
+      if(!uid){
+        alert("Error, User data nothing");
+        location.href = "#/login";
+        return;
+      }
+      userId = Number(uid);
+      console.log("uid=" , userId);
+
       fetchTodos();
+      setTimeout(() => {
+        ChatPostHelper.chat_get(itemId , setChat);
+      }, 500);                    
     })()
   }, []);
 
@@ -51,8 +66,9 @@ export default function App() {
             //console.log(j1)
             if(j1.ret === 200){
               const j2 = JSON.parse(j1.data)
-              console.log(j2.data)
-              setPosts(j2.data)
+              const ar = ChatPostHelper.post_text_conv(j2.data)
+              console.log(ar)
+              setPosts(ar)
             }else{
               console.log("resp=" + resp)
             }
@@ -66,16 +82,14 @@ export default function App() {
       console.error('Error fetching todos:', error);
     }
   };  
- 
 
   const handlePost = async() => {
-    //if (!newContent.trim() && !newTitle.trim()) return;
     if (!newContent.trim()) return;
     const newPost: Post = {
       id: posts.length > 0 ? posts[0].id + 1 : 1,
       user: 'User11',
       chatId: itemId,
-      userId: 1,
+      userId: userId,
       title: newContent,
       body: "",
       content: "",
@@ -162,8 +176,9 @@ export default function App() {
             console.log(j1)
             if(j1.ret === 200){
               const j2 = JSON.parse(j1.data)
-              console.log(j2.data)
-              setThreads(j2.data)
+              const ar = ChatPostHelper.post_text_conv(j2.data);
+              console.log(ar)
+              setThreads(ar)
             }else{
               console.log("resp=" + resp)
             }                            
@@ -203,22 +218,10 @@ export default function App() {
         </div>
 
         {/* Post Form */}
-        <div className="bg-white p-6 rounded shadow-sm border border-gray-200 flex flex-col gap-4">
-{/*
+        <div className="bg-white p-2 rounded shadow-sm border border-gray-200 flex flex-col gap-2">
+          <div className="text-lg font-bold text-gray-600 px-2">{chat.name}</div>
           <textarea 
-            className="w-full text-lg font-bold border-none focus:ring-0 resize-none p-0 placeholder-gray-400 focus:outline-none"
-            placeholder=""
-            rows={1}
-            value={newTitle}
-            onChange={(e) => {
-              setNewTitle(e.target.value);
-              e.target.style.height = 'auto';
-              e.target.style.height = e.target.scrollHeight + 'px';
-            }}
-          />
-*/}
-          <textarea 
-            className="w-full border border-gray-300 rounded p-3 min-h-[120px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded p-2 min-h-[90px] focus:outline-none focus:ring-1 focus:ring-blue-500"
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
           />
@@ -235,15 +238,16 @@ export default function App() {
         {/* Post List */}
         <div className="space-y-4">
           {posts.map(post => (
-            <div key={post.id} className="bg-white p-6 rounded shadow-sm border border-gray-200 flex flex-col gap-3">
-              <div className="font-medium text-gray-900 border-b border-gray-300 pb-2 flex items-center">
-                {post.user}
-              </div>
-              {post.title && <div className="font-bold text-gray-800 break-words">{post.title}</div>}
-              <div className="text-gray-800 whitespace-pre-wrap flex-1">{post.content}</div>
-              <div className="text-sm text-gray-800">
+            <div key={post.id} 
+              className="bg-white p-2 rounded shadow-sm border border-gray-200 flex flex-col gap-2">
+              <div className="border-b border-gray-300 pb-2 flex items-center">
+                <span className="text-lg font-medium text-gray-900 mx-2">{post.user_name}</span> 
                 {post.createdAt} , ID: {post.id}
               </div>
+              {post.title && 
+                (<div dangerouslySetInnerHTML={{ __html: post.title }} />
+                )
+              }
               <div className="flex justify-start pt-1">
                 <button 
                   onClick={() => {
@@ -270,7 +274,8 @@ export default function App() {
             <div className="pr-4">
               <div className="text-sm text-gray-500 mb-1">{selectedPost.user_name} &bull; {selectedPost.createdAt}</div>
               {/* <h3 className="font-bold text-xl text-gray-900 break-words">{selectedPost.title || 'Untitled'}</h3> */}
-              <div className="text-gray-900 break-words">{selectedPost.title || 'Untitled'}</div>
+              <div className="text-gray-900 break-words"
+              dangerouslySetInnerHTML={{ __html: selectedPost.title }} ></div>
             </div>
             <button 
               onClick={() => setSelectedPost(null)} 
@@ -280,11 +285,6 @@ export default function App() {
               <X size={24} />
             </button>
           </div>
-          {/*
-          <div className="p-6 overflow-y-auto max-h-[60vh]">
-            <p className="text-gray-800 whitespace-pre-wrap">{selectedPost.content}</p>
-          </div>
-          */}
           <hr />
           <div className="pt-2">
             <textarea 
@@ -304,7 +304,7 @@ export default function App() {
             className="px-6 py-2 mb-2 bg-blue-500 text-white font-medium rounded hover:bg-gray-300 transition-colors text-sm mx-2"
             onClick={()=>{
               /* chatId, userId, chatPostId , title */
-              const target = ChatPostHelper.thread_add(itemId, 1, selectedPost.id, newReply);
+              const target = ChatPostHelper.thread_add(itemId, userId, selectedPost.id, newReply);
               const sendJson = JSON.stringify(target)
               console.log(sendJson);
               try{    
@@ -335,16 +335,20 @@ export default function App() {
           </div>
           <hr />
           {/* thread-List fixed inset-0 bg-gray-600 bg-opacity-50 */}
-          <div className="p-6 overflow-y-auto text-gray-600 leading-relaxed space-y-4">
+          <div className="p-6 overflow-y-auto text-gray-600 leading-relaxed space-y-2">
             {threads.map(thread => (
               <div key={thread.id} 
-              className="bg-white p-6 rounded  shadow-sm border border-gray-200">
-                <div className="font-medium text-gray-900 border-b border-gray-300 pb-2 flex items-center">
-                  {thread.user}
+              className="bg-white px-2 py-1 rounded  shadow-sm border border-gray-200">
+                <div className="border-b border-gray-300 pb-2 flex items-center">
+                  <span className="text-lg font-medium text-gray-900 mx-2">{thread.user_name}
+                  </span>
+                  {thread.createdAt} , ID: {thread.thread_id}
                 </div>
-                {thread.title && <div className="font-bold text-gray-800 break-words">{thread.title}</div>}
+                {thread.title && (
+                  <div className="mb-2"
+                   dangerouslySetInnerHTML={{ __html: thread.title }}></div>
+                )}
                 <div className="text-sm text-gray-800">
-                  {thread.createdAt} 
                   <span>
                     <button className="text-blue-400 ms-2"
                     onClick={() => {

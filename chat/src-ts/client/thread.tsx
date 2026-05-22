@@ -14,27 +14,10 @@ type Post = {
   date: string;
 };
 let itemId: number = 0;
-
-// Dummy Data
-const initialPosts: Post[] = [
-  {
-    id: 560,
-    user: 'User11',
-    title: '',
-    content: 'test-post-0518-2',
-    date: '2026-05-18',
-  },
-  {
-    id: 559,
-    user: 'User11',
-    title: '',
-    content: 'test-post-0518-1',
-    date: '2026-05-18',
-  },
-];
+let userId: number = 0;
 
 export default function App() {
-  const [posts, setPosts] = useState<Post[]>(initialPosts);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [postOne, setPostOne] = useState({});
   const [threads, setThreads] = useState<[]>([]);
   const [chatThreads, setChatThreads] = useState<[]>([]);
@@ -56,6 +39,14 @@ export default function App() {
   const fetchTodos = () => {
     try {
       ThreadHelper.getChatThread(itemId , setChatThreads);
+      const uid = localStorage.getItem(LibConfig.STORAGE_KEY_USER_ID);
+      if(!uid){
+        alert("Error, User data nothing");
+        location.href = "#/login";
+        return;
+      }
+      userId = Number(uid);
+
     } catch (error) {
       console.error('Error fetching todos:', error);
     }
@@ -176,7 +167,7 @@ export default function App() {
             className="px-6 py-2 mb-2 bg-blue-500 text-white font-medium rounded hover:bg-gray-300 transition-colors text-sm mx-2"
             onClick={()=>{
               /* chatId, userId, chatPostId , title */
-              const target = ChatPostHelper.thread_add(itemId, 1, postOne.id, newReply);
+              const target = ChatPostHelper.thread_add(itemId, userId, postOne.id, newReply);
               const sendJson = JSON.stringify(target)
               console.log(sendJson);
               try{    

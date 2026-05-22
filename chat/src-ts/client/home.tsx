@@ -73,7 +73,6 @@ export default function App() {
 
   useEffect(() => {
     const uid = localStorage.getItem(LibConfig.STORAGE_KEY_USER_ID);
-    //const uid = getCookieValue(LibConfig.COOKIE_KEY_UID);
     if(!uid) {
       location.href = "#/login";
     }    
