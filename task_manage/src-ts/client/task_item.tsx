@@ -89,7 +89,7 @@ export default function App() {
 
       {/* main */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {statTasks1.length === 0 ? (
+        {tasks.length === 0 ? (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
