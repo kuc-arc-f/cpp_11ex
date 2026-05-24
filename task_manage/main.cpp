@@ -296,6 +296,9 @@ static void InitWebView2(HWND hWnd)
                             GetClientRect(hWnd, &bounds);
                             g_controller->put_Bounds(bounds);
                             g_controller->put_IsVisible(TRUE);
+                            // Zoom
+                            double zoomFactor = 0.9; // 
+                            HRESULT hr = g_controller->put_ZoomFactor(zoomFactor);
 
                             // ── ローカルHTMLファイルをロード ────────
                             std::wstring htmlPath = GetHtmlPath();

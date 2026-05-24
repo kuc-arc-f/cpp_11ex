@@ -24,12 +24,10 @@ function Container({ children }) {
               <Home size={18} />
               <span className="font-medium text-sm">Dashboard</span>
             </Link>
-            {/*
             <Link to="/gantt" className="flex items-center gap-3 px-3 py-2.5 text-gray-700 hover:bg-gray-100 rounded-md">
               <div className="w-1.5 h-1.5 rounded-full bg-gray-600 ml-1.5"></div>
               <span className="text-sm">Gantt</span>
             </Link>
-            */}
           </nav>
 
           <div className="text-xs text-gray-400 mt-8 mb-2 px-4 uppercase tracking-wider">Preferences</div>
