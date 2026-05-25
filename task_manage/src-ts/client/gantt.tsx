@@ -63,6 +63,13 @@ export default function App() {
         */}
 
         <h1 className="text-3xl text-[#1f2937] font-semibold mb-6 px-1 tracking-tight">Gantt</h1>
+        <div className="text-center">
+          <button 
+          className="inline-flex items-center gap-2 px-4 py-2 mb-2 bg-blue-400 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+          onClick={()=>{
+            GanttHelper.excelExport(projectId);
+          }}>Excel Export</button>
+        </div>
 
         <div className="overflow-x-auto">
           <table className="border-collapse border border-gray-400 w-max text-sm min-w-full table-fixed">

@@ -28,6 +28,7 @@
 #include "include/http_client.hpp"
 #include "include/my_bookmark.hpp"
 #include "include/my_todo.hpp"
+#include "my_excel.hpp"
 
 // JSON用エイリアス
 using json = nlohmann::json;
@@ -224,6 +225,50 @@ std::wstring action_handler(const std::wstring& data) {
                 return resp_wstr;
             }
             resp.data = res2.body;
+            resp.ret = 200;
+            json j2 = resp;
+            std::string json_str = j2.dump();
+            std::wstring resp_wstr = StringToWString(json_str);
+            return resp_wstr;
+        }
+        if (action == "gantt_excel_export") {
+            std::string path_str = j1.at("path").get<std::string>();
+            std::string data_str = j1.at("data").get<std::string>();
+            std::string url_base = api_url + path_str;
+
+            auto res2 = client.post_json(url_base , data_str);
+            if (!res2.error.empty()) {
+                std::wstring resp_wstr = action_respose(500, res2.error);
+                return resp_wstr;
+            }
+
+            std::vector<TaskRow> task_vec;
+
+            std::string res2str = res2.body;
+            json j3 = json::parse(res2str);
+            json j3data = j3["data"];
+            int a3_len = j3data.size();
+            for (size_t i = 0; i < j3data.size(); ++i) {
+                TaskRow task_row;
+                auto row = j3data.at(i);
+                task_row.id = row["id"];
+                task_row.title = row["title"];
+                std::string start_date = row["start_date"];
+                start_date = start_date.substr(0, 10);
+                task_row.start_date = start_date;
+                std::string complete = row["complete"];
+                complete = complete.substr(0, 10);
+                task_row.end_date = complete;
+                task_row.status = "";
+                task_vec.push_back(task_row); 
+            }  
+            std::reverse(task_vec.begin(), task_vec.end());
+            MyExcel excel_helper("");
+            excel_helper.write_gantt(task_vec, "data/gantt_chart.xlsx");
+
+            json j_out = task_vec; 
+            std::string out_str = j_out.dump();         
+            resp.data = out_str;
             resp.ret = 200;
             json j2 = resp;
             std::string json_str = j2.dump();

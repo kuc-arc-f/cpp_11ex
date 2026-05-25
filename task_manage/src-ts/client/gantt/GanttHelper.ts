@@ -51,5 +51,44 @@ const GanttHelper = {
     }
   }, 
 
+  excelExport: (
+    projectId
+  ) =>{
+    try{    
+      const inData = {
+        projectId: projectId
+      }
+      const target = {
+        action: "gantt_excel_export",
+        path: "/api/task_item/list",
+        data: JSON.stringify(inData)
+      }  
+      const sendJson = JSON.stringify(target)        
+      console.log(sendJson) 
+                
+      if (window.chrome && window.chrome.webview) {
+        const eventHandler = (event) => {
+          const resp = event.data;
+          console.log(resp)
+          if(resp){
+            const j1 = JSON.parse(resp)
+            console.log(j1)
+            if(j1.ret === 200){
+              const j2 = JSON.parse(j1.data)
+              console.log(j1.data)
+              alert("compete save , gantt_chart.xlsx");
+            }else{
+              console.log("resp=" + resp)
+            }
+          }
+          window.chrome.webview.removeEventListener('message', eventHandler);
+        }
+        window.chrome.webview.addEventListener('message', eventHandler);
+        window.chrome.webview.postMessage(sendJson);        
+      }
+    } catch (error) {
+      throw new Error(error)
+    }
+  }, 
 }
 export default GanttHelper;
