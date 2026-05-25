@@ -1,9 +1,10 @@
 import dayjs from "dayjs"
+import GanttCommon from "./GanttCommon";
 
 const GanttHelper = {
 
   taskList: (
-    projectId, setTasks
+    projectId, setTasks, setMonth ,setYear
   ) =>{
     try{    
       const inData = {
@@ -30,12 +31,24 @@ const GanttHelper = {
               j2.data.forEach((element) => {
                 let row = element;
                 const dt = dayjs(element.complete)
+                const end_msec = dt.valueOf(); 
+                console.log("end_msec=", end_msec)
                 console.log(dt.format("YYYY-MM-DD"))
                 const startDt = dayjs(element.start_date)
+                 const start_msec = startDt.valueOf(); 
+                console.log("start_msec=", start_msec)
                 element.end_date = dt.format("YYYY-MM-DD");
                 element.start_date = startDt.format("YYYY-MM-DD");
                 out.push(element)
-              });              
+              }); 
+              const minDt = GanttCommon.getMinYear(out); 
+              const dt2 = dayjs(minDt)            
+              const dt2yy =  dt2.format("YYYY");
+              const dt2mm =  dt2.format("MM");
+              console.log("dt2yy=", dt2yy)
+              console.log("dt2mm=", dt2mm)
+              setYear(Number(dt2yy))
+              setMonth(Number(dt2mm))
               setTasks(out)
             }else{
               console.log("resp=" + resp)

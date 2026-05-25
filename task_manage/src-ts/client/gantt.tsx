@@ -7,14 +7,14 @@ let projectId = 0;
 
 export default function App() {
   const [tasks, setTasks] = useState<[]>([]);
+  const [month, setMonth] = useState(1);
+  const [year, setYear] = useState(2026);
   // We'll focus the calendar on May 2026 to match the sample data
-  const month = 5;
-  const year = 2026;
-  const daysInView = 45; // Matching the 25 columns shown in the screenshot exactly
+  const daysInView = 90; // Matching the 25 columns shown in the screenshot exactly
   
   const getTaskList = () => {
       GanttHelper.taskList(
-        projectId, setTasks
+        projectId, setTasks , setMonth ,setYear
       );
   }
   useEffect(() => {
@@ -43,7 +43,6 @@ export default function App() {
   };
 
   // Reverse tasks so the last created are at the top, matching the picture's layout
-//  const displayTasks = [...initialTasks].reverse();
   const displayTasks = [...tasks].reverse();
 
   return (
@@ -83,7 +82,7 @@ export default function App() {
                     key={idx} 
                     className="border border-gray-400 bg-[#e8f5e9] w-[34px] min-w-[34px] text-center font-normal px-0 py-1"
                   >
-                    <div className="text-[11px] leading-tight text-gray-800">{month}</div>
+                    <div className="text-[11px] leading-tight text-gray-800">{date.getMonth()+1}</div>
                     <div className="text-[11px] leading-tight text-gray-800">{date.getDate()}</div>
                   </th>
                 ))}
