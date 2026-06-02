@@ -226,7 +226,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans pb-12">
-      <div className="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
         <header className="mb-8 pt-8 text-center sm:text-left">
           <div className="flex items-center justify-center sm:justify-start gap-3 mb-2">
             <div className="bg-blue-600 p-2.5 rounded-xl shadow-sm">
@@ -321,7 +321,7 @@ export default function App() {
                       href={bookmark.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[24px] font-semibold text-neutral-900 hover:text-blue-600 truncate flex items-center gap-1.5 w-fit"
+                      className="text-[20px] font-semibold text-neutral-900 hover:text-blue-600 truncate flex items-center gap-1.5 w-fit"
                     >
                       {bookmark.title}
                       <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
